@@ -10,7 +10,50 @@
 #include <thread>
 #include <algorithm>
 
+#if defined(__APPLE__) || defined(__MACOSX)
+#include <machine/endian.h>
+#else
+#include <arpa/inet.h>
+#endif
+
 #include "precomp.hpp"
+
+static std::string::size_type fromHex(char c) {
+	if (c >= 'A' && c <= 'F') {
+		c -= 'A' - 'a';
+	}
+
+	const std::string hex = "0123456789abcdef";
+	const std::string::size_type ret = hex.find(c);
+	return ret;
+}
+
+static cl_ulong4 fromHex(const std::string & strHex) {
+	uint8_t data[32];
+	std::fill(data, data + sizeof(data), cl_uchar(0));
+
+	auto index = 0;
+	for(size_t i = 0; i < strHex.size(); i += 2) {
+		const auto indexHi = fromHex(strHex[i]);
+		const auto indexLo = i + 1 < strHex.size() ? fromHex(strHex[i+1]) : std::string::npos;
+
+		const auto valHi = (indexHi == std::string::npos) ? 0 : indexHi << 4;
+		const auto valLo = (indexLo == std::string::npos) ? 0 : indexLo;
+
+		data[index] = valHi | valLo;
+		++index;
+	}
+
+	cl_ulong4 res = {
+		.s = {
+			htonll(*(uint64_t *)(data + 24)),
+			htonll(*(uint64_t *)(data + 16)),
+			htonll(*(uint64_t *)(data + 8)),
+			htonll(*(uint64_t *)(data + 0)),
+		}
+	};
+	return res;
+}
 
 static std::string toHex(const uint8_t * const s, const size_t len) {
 	std::string b("0123456789abcdef");
@@ -106,21 +149,21 @@ cl_ulong4 Dispatcher::Device::createSeed() {
 	r.s[3] = 1;
 	return r;
 #else
-	// Randomize private keys
+	// We do not need really safe crypto random here, since we inherit safety
+	// of the key form the user-provided seed public key.
+	// We only need this random to not repeat same job among different devices
 	std::random_device rd;
-	std::mt19937_64 eng(rd());
-	std::uniform_int_distribution<cl_ulong> distr;
 
-	cl_ulong4 r;
-	r.s[0] = distr(eng);
-	r.s[1] = distr(eng);
-	r.s[2] = distr(eng);
-	r.s[3] = distr(eng);
-	return r;
+	cl_ulong4 diff;
+	diff.s[0] = (((uint64_t)rd()) << 32) | rd();
+	diff.s[1] = (((uint64_t)rd()) << 32) | rd();
+	diff.s[2] = (((uint64_t)rd()) << 32) | rd();
+	diff.s[3] = (((uint64_t)rd() & 0x0000ffff) << 32) | rd(); // zeroing 2 highest bytes to prevent overflowing sum private key after adding to seed private key
+	return diff;
 #endif
 }
 
-Dispatcher::Device::Device(Dispatcher & parent, cl_context & clContext, cl_program & clProgram, cl_device_id clDeviceId, const size_t worksizeLocal, const size_t size, const size_t index, const Mode & mode) :
+Dispatcher::Device::Device(Dispatcher & parent, cl_context & clContext, cl_program & clProgram, cl_device_id clDeviceId, const size_t worksizeLocal, const size_t size, const size_t index, const Mode & mode, cl_ulong4 clSeedX, cl_ulong4 clSeedY) :
 	m_parent(parent),
 	m_index(index),
 	m_clDeviceId(clDeviceId),
@@ -140,6 +183,8 @@ Dispatcher::Device::Device(Dispatcher & parent, cl_context & clContext, cl_progr
 	m_memData1(clContext, m_clQueue, CL_MEM_READ_ONLY | CL_MEM_HOST_WRITE_ONLY, 20),
 	m_memData2(clContext, m_clQueue, CL_MEM_READ_ONLY | CL_MEM_HOST_WRITE_ONLY, 20),
 	m_clSeed(createSeed()),
+	m_clSeedX(clSeedX),
+	m_clSeedY(clSeedY),
 	m_round(0),
 	m_speed(PROFANITY_SPEEDSAMPLES),
 	m_sizeInitialized(0),
@@ -152,9 +197,20 @@ Dispatcher::Device::~Device() {
 
 }
 
-Dispatcher::Dispatcher(cl_context & clContext, cl_program & clProgram, const Mode mode, const size_t worksizeMax, const size_t inverseSize, const size_t inverseMultiple, const cl_uchar clScoreQuit)
-	: m_clContext(clContext), m_clProgram(clProgram), m_mode(mode), m_worksizeMax(worksizeMax), m_inverseSize(inverseSize), m_size(inverseSize*inverseMultiple), m_clScoreMax(mode.score), m_clScoreQuit(clScoreQuit), m_eventFinished(NULL), m_countPrint(0) {
-
+Dispatcher::Dispatcher(cl_context & clContext, cl_program & clProgram, const Mode mode, const size_t worksizeMax, const size_t inverseSize, const size_t inverseMultiple, const cl_uchar clScoreQuit, const std::string & seedPublicKey)
+	: m_clContext(clContext)
+	, m_clProgram(clProgram)
+	, m_mode(mode)
+	, m_worksizeMax(worksizeMax)
+	, m_inverseSize(inverseSize)
+	, m_size(inverseSize*inverseMultiple)
+	, m_clScoreMax(mode.score)
+	, m_clScoreQuit(clScoreQuit)
+	, m_eventFinished(NULL)
+	, m_countPrint(0)
+	, m_publicKeyX(fromHex(seedPublicKey.substr(0, 64)))
+	, m_publicKeyY(fromHex(seedPublicKey.substr(64, 64)))
+{
 }
 
 Dispatcher::~Dispatcher() {
@@ -162,7 +218,7 @@ Dispatcher::~Dispatcher() {
 }
 
 void Dispatcher::addDevice(cl_device_id clDeviceId, const size_t worksizeLocal, const size_t index) {
-	Device * pDevice = new Device(*this, m_clContext, m_clProgram, clDeviceId, worksizeLocal, m_size, index, m_mode);
+	Device * pDevice = new Device(*this, m_clContext, m_clProgram, clDeviceId, worksizeLocal, m_size, index, m_mode, m_publicKeyX, m_publicKeyY);
 	m_vDevices.push_back(pDevice);
 }
 
@@ -244,6 +300,8 @@ void Dispatcher::initBegin(Device & d) {
 	d.m_memPrevLambda.setKernelArg(d.m_kernelInit, 2);
 	d.m_memResult.setKernelArg(d.m_kernelInit, 3);
 	CLMemory<cl_ulong4>::setKernelArg(d.m_kernelInit, 4, d.m_clSeed);
+	CLMemory<cl_ulong4>::setKernelArg(d.m_kernelInit, 5, d.m_clSeedX);
+	CLMemory<cl_ulong4>::setKernelArg(d.m_kernelInit, 6, d.m_clSeedY);
 
 	// Kernel arguments - profanity_inverse
 	d.m_memPointsDeltaX.setKernelArg(d.m_kernelInverse, 0);

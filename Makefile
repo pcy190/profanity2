@@ -2,7 +2,7 @@ CC=g++
 CDEFINES=
 SOURCES=Dispatcher.cpp Mode.cpp precomp.cpp profanity.cpp SpeedSample.cpp
 OBJECTS=$(SOURCES:.cpp=.o)
-EXECUTABLE=profanity.x64
+EXECUTABLE=profanity2.x64
 
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
