@@ -197,6 +197,11 @@ int main(int argc, char * * argv) {
 			return 1;
 		}
 
+		if (bHelp) {
+			std::cout << g_strHelp << std::endl;
+			return 0;
+		}
+
 		if (strPublicKey.length() == 0) {
 			std::cout << "error: this tool requires your public key to derive it's private key security" << std::endl;
 			return 1;
@@ -205,11 +210,6 @@ int main(int argc, char * * argv) {
 		if (strPublicKey.length() != 128) {
 			std::cout << "error: public key must be 128 hexademical characters long" << std::endl;
 			return 1;
-		}
-
-		if (bHelp) {
-			std::cout << g_strHelp << std::endl;
-			return 0;
 		}
 
 		Mode mode = Mode::benchmark();
