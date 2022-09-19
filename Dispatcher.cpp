@@ -20,7 +20,7 @@
 
 static std::string::size_type fromHex(char c) {
 	if (c >= 'A' && c <= 'F') {
-		c -= 'A' - 'a';
+		c += 'a' - 'A';
 	}
 
 	const std::string hex = "0123456789abcdef";
@@ -150,7 +150,7 @@ cl_ulong4 Dispatcher::Device::createSeed() {
 	return r;
 #else
 	// We do not need really safe crypto random here, since we inherit safety
-	// of the key form the user-provided seed public key.
+	// of the key from the user-provided seed public key.
 	// We only need this random to not repeat same job among different devices
 	std::random_device rd;
 
