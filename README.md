@@ -12,6 +12,18 @@ This project "profanity2" was forked from the original project and modified to g
 
 Project "profanity2" is not generating key anymore, instead it adjusts user-provided public key until desired vanity address will be discovered. Users provide seed public key in form of 128-symbol hex string with `-z` parameter flag. Resulting private key should be used to be added to seed private key to achieve final private key of the desired vanity address (private keys are just 256-bit numbers). Running "profanity2" can even be outsourced to someone completely unreliable - it is still safe by design.
 
+## Getting public key for mandatory `-z` parameter
+
+Generate private key and public key via openssl in terminal (remove prefix "04" from public key):
+```bash
+$ openssl ecparam -genkey -name secp256k1 -text -noout -outform DER | xxd -p -c 1000 | sed 's/41534e31204f49443a20736563703235366b310a30740201010420/Private Key: /' | sed 's/a00706052b8104000aa144034200/\'$'\nPublic Key: /'
+```
+
+Derive public key from existing private key via openssl in terminal (remove prefix "04" from public key):
+```bash
+$ openssl ec -inform DER -text -noout -in <(cat <(echo -n "302e0201010420") <(echo -n "PRIVATE_KEY_HEX") <(echo -n "a00706052b8104000a") | xxd -r -p) 2>/dev/null | tail -6 | head -5 | sed 's/[ :]//g' | tr -d '\n' && echo
+```
+
 ## Adding private keys (never use online calculators!)
 
 ### Terminal:
