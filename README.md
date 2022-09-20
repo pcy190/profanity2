@@ -8,7 +8,7 @@ Profanity is a high performance (probably the fastest!) vanity address generator
 
 Previos version of the project has critical issue allowing due to bad source of randomness to recover private key from public key: https://blog.1inch.io/a-vulnerability-disclosed-in-profanity-an-ethereum-vanity-address-tool-68ed7455fc8c
 
-This project "profanity2" was forked from the original project and modified to guarantee *safety by design*. This means source code of this project do not require any audits, but still guarantee safe usage.
+This project "profanity2" was forked from the original project and modified to guarantee **safety by design**. This means source code of this project do not require any audits, but still guarantee safe usage.
 
 Project "profanity2" is not generating key anymore, instead it adjusts user-provided public key until desired vanity address will be discovered. Users provide seed public key in form of 128-symbol hex string with `-z` parameter flag. Resulting private key should be used to be added to seed private key to achieve final private key of the desired vanity address (private keys are just 256-bit numbers). Running "profanity2" can even be outsourced to someone completely unreliable - it is still safe by design.
 
