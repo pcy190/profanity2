@@ -463,7 +463,7 @@ __kernel void profanity_init(__global const point * const precomp, __global mp_n
 	mp_number tmp1, tmp2;
 	point tmp3;
 
-	// Calculate G^k where k = seed.wzyx (in other words, find the point indicated by the private key represented in seed)
+	// Calculate k*G where k = seed.wzyx (in other words, find the point indicated by the private key represented in seed)
 	profanity_init_seed(precomp, &p_random, &bIsFirst, 8 * 255 * 0, seed.x);
 	profanity_init_seed(precomp, &p_random, &bIsFirst, 8 * 255 * 1, seed.y);
 	profanity_init_seed(precomp, &p_random, &bIsFirst, 8 * 255 * 2, seed.z);
