@@ -202,16 +202,6 @@ int main(int argc, char * * argv) {
 			return 0;
 		}
 
-		if (strPublicKey.length() == 0) {
-			std::cout << "error: this tool requires your public key to derive it's private key security" << std::endl;
-			return 1;
-		}
-
-		if (strPublicKey.length() != 128) {
-			std::cout << "error: public key must be 128 hexademical characters long" << std::endl;
-			return 1;
-		}
-
 		Mode mode = Mode::benchmark();
 		if (bModeBenchmark) {
 			mode = Mode::benchmark();
@@ -237,6 +227,17 @@ int main(int argc, char * * argv) {
 			std::cout << g_strHelp << std::endl;
 			return 0;
 		}
+		
+		if (strPublicKey.length() == 0) {
+			std::cout << "error: this tool requires your public key to derive it's private key security" << std::endl;
+			return 1;
+		}
+
+		if (strPublicKey.length() != 128) {
+			std::cout << "error: public key must be 128 hexademical characters long" << std::endl;
+			return 1;
+		}
+
 		std::cout << "Mode: " << mode.name << std::endl;
 
 		if (bMineContract) {
