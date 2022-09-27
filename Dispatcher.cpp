@@ -10,10 +10,8 @@
 #include <thread>
 #include <algorithm>
 
-#if defined(__APPLE__) || defined(__MACOSX)
-#include <machine/endian.h>
-#else
-#include <arpa/inet.h>
+#ifndef htonll
+#define htonll(x) ((((uint64_t)htonl(x)) << 32) | htonl((x) >> 32))
 #endif
 
 #include "precomp.hpp"
