@@ -16,6 +16,8 @@
 
 #include "precomp.hpp"
 
+#define htonll(x) ((((uint64_t)htonl(x)) << 32) + htonl((x) >> 32))
+
 static std::string::size_type fromHex(char c) {
 	if (c >= 'A' && c <= 'F') {
 		c += 'a' - 'A';
