@@ -10,6 +10,12 @@
 #include <thread>
 #include <algorithm>
 
+#if defined(__APPLE__) || defined(__MACOSX)
+#include <machine/endian.h>
+#else
+#include <arpa/inet.h>
+#endif
+
 #include "precomp.hpp"
 
 #ifndef htonll
