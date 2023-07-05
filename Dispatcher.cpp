@@ -12,11 +12,15 @@
 
 #if defined(__APPLE__) || defined(__MACOSX)
 #include <machine/endian.h>
+#elif defined(_WIN32)
+	#include <Winsock2.h>
+	#pragma comment(lib,"ws2_32.lib") // windows only
 #else
 #include <arpa/inet.h>
 #endif
 
 #include "precomp.hpp"
+
 
 #ifndef htonll
 #define htonll(x) ((((uint64_t)htonl(x)) << 32) | htonl((x) >> 32))
@@ -333,6 +337,8 @@ void Dispatcher::initBegin(Device & d) {
 	initContinue(d);
 }
 
+#define mymin(a,b)            (((a) < (b)) ? (a) : (b))
+
 void Dispatcher::initContinue(Device & d) {
 	size_t sizeLeft = m_size - d.m_sizeInitialized;
 	const size_t sizeInitLimit = m_size / 20;
@@ -343,7 +349,7 @@ void Dispatcher::initContinue(Device & d) {
 
 	if (sizeLeft) {
 		cl_event event;
-		const size_t sizeRun = std::min(sizeInitLimit, std::min(sizeLeft, m_worksizeMax));
+		const size_t sizeRun = mymin(sizeInitLimit, mymin(sizeLeft, m_worksizeMax));
 		const auto resEnqueue = clEnqueueNDRangeKernel(d.m_clQueue, d.m_kernelInit, 1, &d.m_sizeInitialized, &sizeRun, NULL, 0, NULL, &event);
 		OpenCLException::throwIfError("kernel queueing failed during initilization", resEnqueue);
 
@@ -373,7 +379,7 @@ void Dispatcher::enqueueKernel(cl_command_queue & clQueue, cl_kernel & clKernel,
 	const size_t worksizeMax = m_worksizeMax;
 	size_t worksizeOffset = 0;
 	while (worksizeGlobal) {
-		const size_t worksizeRun = std::min(worksizeGlobal, worksizeMax);
+		const size_t worksizeRun = mymin(worksizeGlobal, worksizeMax);
 		const size_t * const pWorksizeLocal = (worksizeLocal == 0 ? NULL : &worksizeLocal);
 		const auto res = clEnqueueNDRangeKernel(clQueue, clKernel, 1, &worksizeOffset, &worksizeRun, pWorksizeLocal, 0, NULL, pEvent);
 		OpenCLException::throwIfError("kernel queueing failed", res);
